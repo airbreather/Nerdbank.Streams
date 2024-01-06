@@ -228,6 +228,30 @@ public partial class PipeExtensionsTests : TestBase
     }
 
     [Fact]
+    public async Task UsePipeWriter_WebSocket_SeparateMessagesForSeparateWrites()
+    {
+        const int MessageCount = 100; // on my machine, this seems to happen before like 3
+        byte[]? expectedBuffer = new byte[] { 4, 5, 6 };
+        var webSocket = new MockWebSocket();
+        PipeWriter? pipeWriter = webSocket.UsePipeWriter(cancellationToken: this.TimeoutToken);
+        for (int i = 0; i < MessageCount; i++)
+        {
+            await pipeWriter.WriteAsync(expectedBuffer, this.TimeoutToken);
+        }
+
+        pipeWriter.Complete();
+#pragma warning disable CS0618 // Type or member is obsolete
+        await pipeWriter.WaitForReaderCompletionAsync();
+#pragma warning restore CS0618 // Type or member is obsolete
+        for (int i = 0; i < MessageCount; i++)
+        {
+            Assert.True(webSocket.WrittenQueue.TryDequeue(out MockWebSocket.Message? message));
+            Console.WriteLine(i);
+            Assert.Equal(expectedBuffer, message.Buffer.ToArray());
+        }
+    }
+
+    [Fact]
     public async Task UsePipe_WebSocket()
     {
         byte[]? expectedBuffer = new byte[] { 4, 5, 6 };
